@@ -1,0 +1,50 @@
+// 1. 父類別 (第 1 個 class)
+class ProbabilityPage {
+    int pageNum;
+    String title;
+
+    ProbabilityPage(int pageNum, String title) {
+        this.pageNum = pageNum;
+        this.title = title;
+    }
+
+    void display() {
+        System.out.println(">>> [Page " + pageNum + "] 標題: " + title);
+    }
+}
+
+// 2-13. 子類別 (第 2 ~ 13 個 class)
+class Page1 extends ProbabilityPage { Page1() { super(1, "隨機實驗"); } }
+class Page2 extends ProbabilityPage { Page2() { super(2, "樣本空間"); } }
+class Page3 extends ProbabilityPage { Page3() { super(3, "事件定義"); } }
+class Page4 extends ProbabilityPage { Page4() { super(4, "機率公設"); } }
+class Page5 extends ProbabilityPage { Page5() { super(5, "互斥事件"); } }
+class Page6 extends ProbabilityPage { Page6() { super(6, "古典機率"); } }
+class Page7 extends ProbabilityPage { Page7() { super(7, "排列組合"); } }
+class Page8 extends ProbabilityPage { Page8() { super(8, "條件機率"); } }
+class Page9 extends ProbabilityPage { Page9() { super(9, "獨立事件"); } }
+class Page10 extends ProbabilityPage { Page10() { super(10, "乘法法則"); } }
+class Page11 extends ProbabilityPage { Page11() { super(11, "全機率定理"); } }
+class Page12 extends ProbabilityPage { Page12() { super(12, "貝氏定理"); } }
+
+// 14. 主程式類別 (這是第 14 個類別，確保超過 13 個)
+public class ProbabilityAssignment {
+    public static void main(String[] args) {
+        // 強制先印出一行，確認程式有在跑
+        System.out.println("========================================");
+        System.out.println("   正在初始化 13 個類別物件...請稍候...   ");
+        System.out.println("========================================\n");
+
+        ProbabilityPage[] pages = {
+            new Page1(), new Page2(), new Page3(), new Page4(),
+            new Page5(), new Page6(), new Page7(), new Page8(),
+            new Page9(), new Page10(), new Page11(), new Page12()
+        };
+
+        for (ProbabilityPage p : pages) {
+            p.display();
+        }
+
+        System.out.println("\n[執行成功] 已顯示所有物件。");
+    }
+}
