@@ -1,0 +1,259 @@
+import java.awt.*;
+import java.awt.event.*;
+import java.util.*;
+import java.util.List;
+import javax.swing.*;
+import javax.swing.Timer;
+
+public class Game001 extends JFrame {
+    public Game001() {
+        setTitle("Space Fighter - Infinite Upgrade");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setResizable(false);
+        add(new GamePanel());
+        pack();
+        setLocationRelativeTo(null);
+        setVisible(true);
+    }
+
+    public static void main(String[] args) {
+        EventQueue.invokeLater(() -> new Game001());
+    }
+}
+
+class GamePanel extends JPanel implements ActionListener, KeyListener {
+    private final int WIDTH = 800;
+    private final int HEIGHT = 600;
+
+    private boolean isPaused = false;
+    private int score = 0;
+    private int level = 1;
+    private int exp = 0;
+    private int nextLevelExp = 50;
+
+    private int playerX = 400, playerY = 500;
+    private int playerHP = 3; // 血量設置 3 滴
+    private int shootInterval = 600; // 初始射擊速度
+    private int bulletColumns = 1;   // 初始射擊排數
+    private long lastShootTime = 0;
+
+    private List<Point> bullets = new ArrayList<>();
+    private List<Enemy> enemies = new ArrayList<>();
+    private List<Rectangle> obstacles = new ArrayList<>();
+    private Timer timer;
+    private Set<Integer> pressedKeys = new HashSet<>();
+
+    public GamePanel() {
+        setPreferredSize(new Dimension(WIDTH, HEIGHT));
+        setBackground(Color.BLACK);
+        setFocusable(true);
+        addKeyListener(this);
+
+        Random rand = new Random();
+        for (int i = 0; i < 10; i++) {
+            obstacles.add(new Rectangle(rand.nextInt(WIDTH - 100), rand.nextInt(HEIGHT - 300) + 50, 50, 50));
+        }
+
+        timer = new Timer(16, this);
+        timer.start();
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        Graphics2D g2d = (Graphics2D) g;
+
+        // 畫隕石
+        g2d.setColor(new Color(139, 69, 19)); // 棕色隕石
+        for (Rectangle obs : obstacles) {
+            g2d.fillOval(obs.x, obs.y, obs.width, obs.height);
+        }
+
+        // 畫玩家飛機
+        g2d.setColor(Color.CYAN);
+        int[] px = {playerX, playerX - 15, playerX + 15};
+        int[] py = {playerY - 20, playerY + 15, playerY + 15};
+        g2d.fillPolygon(px, py, 3);
+
+        // --- 在玩家頭上顯示血量 ---
+        g2d.setColor(Color.RED);
+        g2d.setFont(new Font("Arial", Font.BOLD, 14));
+        String hpText = "HP: " + "♥".repeat(Math.max(0, playerHP));
+        g2d.drawString(hpText, playerX - 20, playerY - 30);
+
+        // 畫子彈
+        g2d.setColor(Color.YELLOW);
+        for (Point b : bullets) {
+            g2d.fillRect(b.x - 2, b.y, 4, 10);
+        }
+
+        // 畫敵人 (垂直向下移動)
+        g2d.setColor(Color.ORANGE);
+        for (Enemy e : enemies) {
+            g2d.fillRect(e.x - 15, e.y - 15, 30, 30);
+        }
+
+        // UI 介面
+        g2d.setColor(Color.WHITE);
+        g2d.setFont(new Font("Microsoft JhengHei", Font.BOLD, 16));
+        g2d.drawString("分數: " + score, 20, 30);
+        g2d.drawString("等級: " + level, 20, 55);
+        g2d.drawString("經驗: " + exp + "/" + nextLevelExp, 20, 80);
+        g2d.drawString("射速: " + (1000/shootInterval) + " shots/s | 排數: " + bulletColumns, 20, 105);
+
+        if (isPaused) {
+            g2d.setColor(new Color(0, 0, 0, 180));
+            g2d.fillRect(0, 0, WIDTH, HEIGHT);
+            g2d.setColor(Color.YELLOW);
+            g2d.drawString("★ 升級！強化選擇 ★", WIDTH/2 - 80, HEIGHT/2 - 40);
+            g2d.setColor(Color.WHITE);
+            g2d.drawString("按 [1] : 射得更快 (目前: " + shootInterval + "ms)", WIDTH/2 - 120, HEIGHT/2);
+            g2d.drawString("按 [2] : 增加一排子彈 (目前: " + bulletColumns + "排)", WIDTH/2 - 120, HEIGHT/2 + 30);
+        }
+        
+        if (playerHP <= 0) {
+            g2d.setColor(Color.RED);
+            g2d.setFont(new Font("Arial", Font.BOLD, 40));
+            g2d.drawString("GAME OVER", WIDTH/2 - 120, HEIGHT/2);
+            g2d.setFont(new Font("Arial", Font.BOLD, 20));
+            g2d.setColor(Color.WHITE);
+            g2d.drawString("Press [R] to Reset", WIDTH/2 - 85, HEIGHT/2 + 50);
+            timer.stop();
+        }
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if (isPaused) return;
+
+        movePlayer();
+        handleAutoShoot();
+        updateBullets();
+        updateEnemies();
+        checkCollisions();
+        spawnEnemies();
+
+        repaint();
+    }
+
+    private void handleAutoShoot() {
+        long now = System.currentTimeMillis();
+        if (now - lastShootTime > shootInterval) {
+            // 根據 bulletColumns 數量並排發射
+            int startX = playerX - ((bulletColumns - 1) * 15);
+            for (int i = 0; i < bulletColumns; i++) {
+                bullets.add(new Point(startX + (i * 30), playerY - 20));
+            }
+            lastShootTime = now;
+        }
+    }
+
+    private void updateBullets() {
+        for (int i = bullets.size() - 1; i >= 0; i--) {
+            bullets.get(i).y -= 10;
+            if (bullets.get(i).y < 0) bullets.remove(i);
+        }
+    }
+
+    private void updateEnemies() {
+        for (int i = enemies.size() - 1; i >= 0; i--) {
+            enemies.get(i).y += 3; // 敵人只會往下掉
+            if (enemies.get(i).y > HEIGHT) enemies.remove(i);
+        }
+    }
+
+    private void checkCollisions() {
+        Rectangle pRect = new Rectangle(playerX - 10, playerY - 10, 20, 20);
+
+        // 檢測隕石碰撞 (玩家撞隕石扣血)
+        for (Rectangle obs : obstacles) {
+            if (pRect.intersects(obs)) {
+                playerHP--;
+                // 撞到後彈開一段距離避免連續扣血
+                playerY += 40;
+                if (playerHP <= 0) return;
+            }
+        }
+
+        for (int i = enemies.size() - 1; i >= 0; i--) {
+            Enemy en = enemies.get(i);
+            Rectangle eRect = new Rectangle(en.x - 15, en.y - 15, 30, 30);
+
+            // 子彈擊中敵人
+            for (int j = bullets.size() - 1; j >= 0; j--) {
+                if (eRect.contains(bullets.get(j))) {
+                    enemies.remove(i);
+                    bullets.remove(j);
+                    gainExp(20);
+                    score += 100;
+                    return;
+                }
+            }
+
+            // 敵人撞擊玩家
+            if (eRect.intersects(pRect)) {
+                playerHP--;
+                enemies.remove(i);
+                return;
+            }
+        }
+    }
+
+    private void gainExp(int amount) {
+        exp += amount;
+        if (exp >= nextLevelExp) {
+            isPaused = true;
+            level++;
+            exp = 0;
+            nextLevelExp += 60;
+        }
+    }
+
+    private void spawnEnemies() {
+        if (new Random().nextInt(100) < 3 && enemies.size() < 8) {
+            enemies.add(new Enemy(new Random().nextInt(WIDTH - 30) + 15, -20));
+        }
+    }
+
+    private void movePlayer() {
+        int speed = 6;
+        if (pressedKeys.contains(KeyEvent.VK_W) && playerY > 30) playerY -= speed;
+        if (pressedKeys.contains(KeyEvent.VK_S) && playerY < HEIGHT - 40) playerY += speed;
+        if (pressedKeys.contains(KeyEvent.VK_A) && playerX > 20) playerX -= speed;
+        if (pressedKeys.contains(KeyEvent.VK_D) && playerX < WIDTH - 20) playerX += speed;
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        pressedKeys.add(e.getKeyCode());
+        
+        if (isPaused) {
+            if (e.getKeyCode() == KeyEvent.VK_1) {
+                shootInterval = Math.max(50, shootInterval - 80); // 每次點擊縮短 80ms
+                isPaused = false;
+            } else if (e.getKeyCode() == KeyEvent.VK_2) {
+                bulletColumns++; // 每次點擊增加一排
+                isPaused = false;
+            }
+        }
+
+        if (e.getKeyCode() == KeyEvent.VK_R && playerHP <= 0) {
+            resetGame();
+        }
+    }
+
+    private void resetGame() {
+        playerHP = 3; score = 0; level = 1; exp = 0;
+        shootInterval = 600; bulletColumns = 1;
+        enemies.clear(); bullets.clear();
+        timer.start();
+    }
+
+    @Override public void keyReleased(KeyEvent e) { pressedKeys.remove(e.getKeyCode()); }
+    @Override public void keyTyped(KeyEvent e) {}
+}
+
+class Enemy {
+    int x, y;
+    public Enemy(int x, int y) { this.x = x; this.y = y; }
+}
